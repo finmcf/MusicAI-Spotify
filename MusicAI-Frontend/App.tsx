@@ -4,6 +4,7 @@ import * as AuthSession from "expo-auth-session";
 import axios from "axios";
 import { encode as btoa } from "base-64";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import SpotifyWebAPI from "spotify-web-api-js";
 
 const scopesArr = [
   "user-modify-playback-state",
@@ -103,24 +104,90 @@ const getUserData = async (key) => {
   }
 };
 
+const refreshTokens = async () => {
+  try {
+    const credentials = await getSpotifyCredentials();
+    const credsB64 = btoa(
+      `${credentials.clientId}:${credentials.clientSecret}`
+    );
+    const refreshToken = await getUserData("refreshToken");
+    const response = await fetch("https://accounts.spotify.com/api/token", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${credsB64}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: `grant_type=refresh_token&refresh_token=${refreshToken}`,
+    });
+    const responseJson = await response.json();
+    if (responseJson.error) {
+      await getTokens();
+    } else {
+      const {
+        access_token: newAccessToken,
+        refresh_token: newRefreshToken,
+        expires_in: expiresIn,
+      } = responseJson;
+
+      const expirationTime = new Date().getTime() + expiresIn * 1000;
+      await setUserData("accessToken", newAccessToken);
+      if (newRefreshToken) {
+        await setUserData("refreshToken", newRefreshToken);
+      }
+      await setUserData("expirationTime", expirationTime.toString());
+    }
+  } catch (err) {
+    console.error(err);
+  }
+};
+
 export default function App() {
   const [accessToken, setAccessToken] = useState("");
   const [refreshToken, setRefreshToken] = useState("");
   const [expirationTime, setExpirationTime] = useState("");
+  const [accessTokenAvailable, setAccessTokenAvailable] = useState(false);
+  const [spotifyApi, setSpotifyApi] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [userPlaylists, setUserPlaylists] = useState(null);
 
   useEffect(() => {
     (async () => {
-      await getTokens();
+      const refreshToken = await getUserData("refreshToken");
+      const tokenExpirationTime = await getUserData("expirationTime");
+
+      if (!refreshToken || !tokenExpirationTime) {
+        await getTokens();
+      } else if (new Date().getTime() > tokenExpirationTime) {
+        await refreshTokens();
+      }
 
       const accessToken = await getUserData("accessToken");
-      const refreshToken = await getUserData("refreshToken");
-      const expirationTime = await getUserData("expirationTime");
+      const newRefreshToken = await getUserData("refreshToken");
+      const newExpirationTime = await getUserData("expirationTime");
 
       setAccessToken(accessToken);
-      setRefreshToken(refreshToken);
-      setExpirationTime(expirationTime);
+      setRefreshToken(newRefreshToken);
+      setExpirationTime(newExpirationTime);
+      setAccessTokenAvailable(true);
+
+      // Create a SpotifyWebAPI instance and set the access token
+      var sp = new SpotifyWebAPI();
+      sp.setAccessToken(accessToken);
+      setSpotifyApi(sp);
     })();
   }, []);
+
+  useEffect(() => {
+    if (spotifyApi) {
+      (async () => {
+        const profile = await spotifyApi.getMe();
+        setUserProfile(profile);
+
+        const playlists = await spotifyApi.getUserPlaylists();
+        setUserPlaylists(playlists);
+      })();
+    }
+  }, [spotifyApi]);
 
   return (
     <View style={styles.container}>
@@ -128,6 +195,22 @@ export default function App() {
       <Text>Access Token: {accessToken}</Text>
       <Text>Refresh Token: {refreshToken}</Text>
       <Text>Expiration Time: {expirationTime}</Text>
+      <Text>Access Token Available: {accessTokenAvailable.toString()}</Text>
+
+      {userProfile && (
+        <View>
+          <Text>Username: {userProfile.display_name}</Text>
+          <Text>Profile Picture: {userProfile.images[0].url}</Text>
+        </View>
+      )}
+
+      {userPlaylists && (
+        <View>
+          {userPlaylists.items.map((playlist, index) => (
+            <Text key={index}>Playlist: {playlist.name}</Text>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
