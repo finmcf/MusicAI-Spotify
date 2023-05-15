@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, TouchableOpacity, Image } from "react-native";
+
 import * as AuthSession from "expo-auth-session";
 import axios from "axios";
 import { encode as btoa } from "base-64";
@@ -149,31 +150,59 @@ export default function App() {
   const [spotifyApi, setSpotifyApi] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [userPlaylists, setUserPlaylists] = useState(null);
+  const [profilePicture, setProfilePicture] = useState(null);
+
+  const handleLogin = async () => {
+    const refreshToken = await getUserData("refreshToken");
+    const tokenExpirationTime = await getUserData("expirationTime");
+
+    if (!refreshToken || !tokenExpirationTime) {
+      await getTokens();
+    } else if (new Date().getTime() > tokenExpirationTime) {
+      await refreshTokens();
+    }
+
+    const accessToken = await getUserData("accessToken");
+    const newRefreshToken = await getUserData("refreshToken");
+    const newExpirationTime = await getUserData("expirationTime");
+
+    setAccessToken(accessToken);
+    setRefreshToken(newRefreshToken);
+    setExpirationTime(newExpirationTime);
+    setAccessTokenAvailable(true);
+
+    // Create a SpotifyWebAPI instance and set the access token
+    var sp = new SpotifyWebAPI();
+    sp.setAccessToken(accessToken);
+    setSpotifyApi(sp);
+  };
 
   useEffect(() => {
+    // Refresh the token every 30 minutes
+    const interval = setInterval(() => {
+      refreshTokens();
+    }, 1000 * 60 * 30);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    // Check if user data is already available
     (async () => {
-      const refreshToken = await getUserData("refreshToken");
-      const tokenExpirationTime = await getUserData("expirationTime");
-
-      if (!refreshToken || !tokenExpirationTime) {
-        await getTokens();
-      } else if (new Date().getTime() > tokenExpirationTime) {
-        await refreshTokens();
-      }
-
       const accessToken = await getUserData("accessToken");
-      const newRefreshToken = await getUserData("refreshToken");
-      const newExpirationTime = await getUserData("expirationTime");
+      const refreshToken = await getUserData("refreshToken");
+      const expirationTime = await getUserData("expirationTime");
 
-      setAccessToken(accessToken);
-      setRefreshToken(newRefreshToken);
-      setExpirationTime(newExpirationTime);
-      setAccessTokenAvailable(true);
+      if (accessToken && refreshToken && expirationTime) {
+        setAccessToken(accessToken);
+        setRefreshToken(refreshToken);
+        setExpirationTime(expirationTime);
+        setAccessTokenAvailable(true);
 
-      // Create a SpotifyWebAPI instance and set the access token
-      var sp = new SpotifyWebAPI();
-      sp.setAccessToken(accessToken);
-      setSpotifyApi(sp);
+        // Create a SpotifyWebAPI instance and set the access token
+        var sp = new SpotifyWebAPI();
+        sp.setAccessToken(accessToken);
+        setSpotifyApi(sp);
+      }
     })();
   }, []);
 
@@ -185,6 +214,10 @@ export default function App() {
 
         const playlists = await spotifyApi.getUserPlaylists();
         setUserPlaylists(playlists);
+
+        // Get the profile picture URL
+        const profilePictureURL = profile.images[0]?.url; // Use optional chaining in case the images array is empty
+        setProfilePicture(profilePictureURL);
       })();
     }
   }, [spotifyApi]);
@@ -192,24 +225,25 @@ export default function App() {
   return (
     <View style={styles.container}>
       <Text>Open up App.tsx to start working on your app!</Text>
-      <Text>Access Token: {accessToken}</Text>
-      <Text>Refresh Token: {refreshToken}</Text>
-      <Text>Expiration Time: {expirationTime}</Text>
-      <Text>Access Token Available: {accessTokenAvailable.toString()}</Text>
-
-      {userProfile && (
+      {accessTokenAvailable ? (
         <View>
-          <Text>Username: {userProfile.display_name}</Text>
-          <Text>Profile Picture: {userProfile.images[0].url}</Text>
+          <Text>Welcome {userProfile && userProfile.display_name}</Text>
+          {profilePicture && (
+            <Image
+              source={{ uri: profilePicture }}
+              style={styles.profilePicture}
+            />
+          )}
+          <Text>Your playlists:</Text>
+          {userPlaylists &&
+            userPlaylists.items.map((playlist, index) => (
+              <Text key={index}>{playlist.name}</Text>
+            ))}
         </View>
-      )}
-
-      {userPlaylists && (
-        <View>
-          {userPlaylists.items.map((playlist, index) => (
-            <Text key={index}>Playlist: {playlist.name}</Text>
-          ))}
-        </View>
+      ) : (
+        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+          <Text style={styles.loginButtonText}>Login with Spotify</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -221,5 +255,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
+  },
+  loginButton: {
+    backgroundColor: "#1DB954",
+    padding: 10,
+    borderRadius: 25,
+    width: 200,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  loginButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  profilePicture: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
 });
