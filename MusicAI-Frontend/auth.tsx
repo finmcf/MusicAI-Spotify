@@ -1,7 +1,7 @@
 import axios from "axios";
 import * as AuthSession from "expo-auth-session";
 import { encode as btoa } from "base-64";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 
 const scopesArr = [
   "user-modify-playback-state",
@@ -21,7 +21,7 @@ const scopes = scopesArr.join(" ");
 export const getSpotifyCredentials = async () => {
   try {
     const res = await axios.get(
-      "http://192.168.1.104:3000/api/spotify-credentials"
+      "http://192.168.1.172:3000/api/spotify-credentials"
     );
 
     const spotifyCredentials = res.data;
@@ -53,6 +53,23 @@ export const getAuthorizationCode = async () => {
   }
 };
 
+export const setUserData = async (key, value) => {
+  try {
+    await SecureStore.setItemAsync(key, value);
+  } catch (error) {
+    console.error("Failed to set user data:", error);
+  }
+};
+
+export const getUserData = async (key) => {
+  try {
+    const value = await SecureStore.getItemAsync(key);
+    return value;
+  } catch (error) {
+    console.error("Failed to get user data:", error);
+  }
+};
+
 export const getTokens = async () => {
   try {
     const authorizationCode = await getAuthorizationCode();
@@ -81,23 +98,6 @@ export const getTokens = async () => {
     await setUserData("expirationTime", expirationTime.toString());
   } catch (err) {
     console.error(err);
-  }
-};
-
-export const setUserData = async (key, value) => {
-  try {
-    await AsyncStorage.setItem(key, value);
-  } catch (error) {
-    console.error("Failed to set user data:", error);
-  }
-};
-
-export const getUserData = async (key) => {
-  try {
-    const value = await AsyncStorage.getItem(key);
-    return value;
-  } catch (error) {
-    console.error("Failed to get user data:", error);
   }
 };
 
