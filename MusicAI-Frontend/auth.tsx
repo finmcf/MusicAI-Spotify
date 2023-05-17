@@ -21,7 +21,7 @@ const scopes = scopesArr.join(" ");
 export const getSpotifyCredentials = async () => {
   try {
     const res = await axios.get(
-      "http://192.168.1.104:3000/api/spotify-credentials"
+      "http://192.168.1.172:3000/api/spotify-credentials"
     );
 
     const spotifyCredentials = res.data;
