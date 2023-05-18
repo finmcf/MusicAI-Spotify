@@ -4,6 +4,7 @@ import { createStackNavigator } from "@react-navigation/stack";
 import LoginScreen from "./LoginScreen";
 import SettingsScreen from "./SettingsScreen";
 import MusicScreen from "./MusicScreen";
+import PlayerScreen from "./PlayerScreen"; // Import your PlayerScreen
 
 import { refreshTokens, getUserData } from "./auth"; // import your functions
 
@@ -37,6 +38,11 @@ export default function App() {
           name="Music"
           component={MusicScreen}
           options={{ title: "Music" }}
+        />
+        <Stack.Screen
+          name="Player"
+          component={PlayerScreen}
+          options={{ title: "Player" }}
         />
         <Stack.Screen
           name="Settings"

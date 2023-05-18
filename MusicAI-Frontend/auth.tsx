@@ -21,7 +21,7 @@ const scopes = scopesArr.join(" ");
 export const getSpotifyCredentials = async () => {
   try {
     const res = await axios.get(
-      "http://192.168.1.172:3000/api/spotify-credentials"
+      "http://192.168.1.104:3000/api/spotify-credentials"
     );
 
     const spotifyCredentials = res.data;
@@ -46,6 +46,7 @@ export const getAuthorizationCode = async () => {
         encodeURIComponent(redirectUrl),
     });
     if (result.type === "success") {
+      console.log("Authorization code received: ", result.params.code);
       return result.params.code;
     }
   } catch (err) {
@@ -92,6 +93,8 @@ export const getTokens = async () => {
       expires_in: expiresIn,
     } = responseJson;
 
+    console.log("Access token received: ", accessToken);
+
     const expirationTime = new Date().getTime() + expiresIn * 1000;
     await setUserData("accessToken", accessToken);
     await setUserData("refreshToken", refreshToken);
@@ -105,7 +108,7 @@ export const refreshTokens = async () => {
   try {
     const credentials = await getSpotifyCredentials();
     const credsB64 = btoa(
-      `${credentials.clientId}:${credentials.clientSecret}`
+      "${credentials.clientId}:${credentials.clientSecret}"
     );
     const refreshToken = await getUserData("refreshToken");
     const response = await fetch("https://accounts.spotify.com/api/token", {
