@@ -1,17 +1,33 @@
 import React from "react";
 import { TouchableOpacity, Text, View, StyleSheet } from "react-native";
-import { getTokens, getUserData } from "./auth"; // Assuming auth.js file contains your auth functions
+import {
+  getAuthorizationCode,
+  sendAuthCodeToServer,
+  sendTestPostRequest,
+} from "./auth";
 
 export default function LoginScreen({ navigation }) {
+  // In LoginScreen
   const handleLogin = async () => {
-    await getTokens();
+    const authorizationCode = await getAuthorizationCode();
+    await sendAuthCodeToServer(authorizationCode);
     navigation.navigate("Music");
+  };
+
+  const handleTestPostRequest = async () => {
+    await sendTestPostRequest();
   };
 
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
         <Text style={styles.loginButtonText}>Login with Spotify</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.loginButton}
+        onPress={handleTestPostRequest}
+      >
+        <Text style={styles.loginButtonText}>Test POST Request</Text>
       </TouchableOpacity>
     </View>
   );

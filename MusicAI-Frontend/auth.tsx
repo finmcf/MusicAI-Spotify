@@ -21,7 +21,7 @@ const scopes = scopesArr.join(" ");
 export const getSpotifyCredentials = async () => {
   try {
     const res = await axios.get(
-      "http://192.168.1.104:3000/api/spotify-credentials"
+      "http://192.168.1.104:5001/api/spotify-credentials"
     );
 
     const spotifyCredentials = res.data;
@@ -54,6 +54,37 @@ export const getAuthorizationCode = async () => {
   }
 };
 
+// In auth.js
+export const sendTestPostRequest = async () => {
+  try {
+    const res = await axios.post(
+      "http://192.168.1.104:5001/api/test",
+      {
+        test: "test data",
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    console.log("Test POST request sent: ", res.data);
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+export const sendAuthCodeToServer = async (authorizationCode) => {
+  try {
+    await axios.post("http://192.168.1.104:5001/api/store-authorization-code", {
+      authorizationCode,
+    });
+    console.log("Sent the authorization code to the server.");
+  } catch (err) {
+    console.error("Failed to send authorization code to server:", err);
+  }
+};
+
 export const setUserData = async (key, value) => {
   try {
     await SecureStore.setItemAsync(key, value);
@@ -68,75 +99,5 @@ export const getUserData = async (key) => {
     return value;
   } catch (error) {
     console.error("Failed to get user data:", error);
-  }
-};
-
-export const getTokens = async () => {
-  try {
-    const authorizationCode = await getAuthorizationCode();
-    const credentials = await getSpotifyCredentials();
-    const credsB64 = btoa(
-      `${credentials.clientId}:${credentials.clientSecret}`
-    );
-    const response = await fetch("https://accounts.spotify.com/api/token", {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${credsB64}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: `grant_type=authorization_code&code=${authorizationCode}&redirect_uri=${credentials.redirectUri}`,
-    });
-    const responseJson = await response.json();
-    const {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      expires_in: expiresIn,
-    } = responseJson;
-
-    console.log("Access token received: ", accessToken);
-
-    const expirationTime = new Date().getTime() + expiresIn * 1000;
-    await setUserData("accessToken", accessToken);
-    await setUserData("refreshToken", refreshToken);
-    await setUserData("expirationTime", expirationTime.toString());
-  } catch (err) {
-    console.error(err);
-  }
-};
-
-export const refreshTokens = async () => {
-  try {
-    const credentials = await getSpotifyCredentials();
-    const credsB64 = btoa(
-      "${credentials.clientId}:${credentials.clientSecret}"
-    );
-    const refreshToken = await getUserData("refreshToken");
-    const response = await fetch("https://accounts.spotify.com/api/token", {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${credsB64}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: `grant_type=refresh_token&refresh_token=${refreshToken}`,
-    });
-    const responseJson = await response.json();
-    if (responseJson.error) {
-      await getTokens();
-    } else {
-      const {
-        access_token: newAccessToken,
-        refresh_token: newRefreshToken,
-        expires_in: expiresIn,
-      } = responseJson;
-
-      const expirationTime = new Date().getTime() + expiresIn * 1000;
-      await setUserData("accessToken", newAccessToken);
-      if (newRefreshToken) {
-        await setUserData("refreshToken", newRefreshToken);
-      }
-      await setUserData("expirationTime", expirationTime.toString());
-    }
-  } catch (err) {
-    console.error(err);
   }
 };

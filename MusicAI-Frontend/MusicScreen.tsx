@@ -10,9 +10,6 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import SpotifyWebAPI from "spotify-web-api-js";
-
-import { getUserData } from "./auth"; // Assuming auth.js file contains your auth functions
 
 const { width, height } = Dimensions.get("window");
 
@@ -21,19 +18,12 @@ const MusicScreen: React.FC = () => {
   const navigation = useNavigation();
 
   useEffect(() => {
-    (async () => {
-      const accessToken = await getUserData("accessToken");
-
-      if (accessToken) {
-        // Create a SpotifyWebAPI instance and set the access token
-        var spotifyApi = new SpotifyWebAPI();
-        spotifyApi.setAccessToken(accessToken);
-
-        const userPlaylists = await spotifyApi.getUserPlaylists();
-        console.log(userPlaylists.items.map((playlist) => playlist.name)); // Log playlist names
-        setPlaylists(userPlaylists.items);
-      }
-    })();
+    fetch("http://192.168.1.104:5001/api/user-playlists")
+      .then((response) => response.json())
+      .then((data) => {
+        console.log(data.items.map((playlist) => playlist.name)); // Log playlist names
+        setPlaylists(data.items);
+      });
   }, []);
 
   const handleSettingsPress = (): void => {

@@ -1,45 +1,27 @@
 import React, { useEffect, useState } from "react";
 import { Text, View, Image, TouchableOpacity, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import SpotifyWebAPI from "spotify-web-api-js";
-import { getUserData, setUserData } from "./auth"; // Assuming auth.js file contains your auth functions
+import { setUserData } from "./auth"; // Assuming auth.js file contains your auth functions
 
 export default function SettingsScreen() {
-  const [spotifyApi, setSpotifyApi] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [userPlaylists, setUserPlaylists] = useState(null);
   const [profilePicture, setProfilePicture] = useState(null);
   const navigation = useNavigation();
 
   useEffect(() => {
-    // Check if user data is already available
-    (async () => {
-      const accessToken = await getUserData("accessToken");
-
-      if (accessToken) {
-        // Create a SpotifyWebAPI instance and set the access token
-        var sp = new SpotifyWebAPI();
-        sp.setAccessToken(accessToken);
-        setSpotifyApi(sp);
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (spotifyApi) {
-      (async () => {
-        const profile = await spotifyApi.getMe();
-        setUserProfile(profile);
-
-        const playlists = await spotifyApi.getUserPlaylists();
-        setUserPlaylists(playlists);
+    // Get user information from server
+    fetch("http://192.168.1.104:5001/api/user-info")
+      .then((response) => response.json())
+      .then((data) => {
+        setUserProfile(data.userProfile);
+        setUserPlaylists(data.userPlaylists);
 
         // Get the profile picture URL
-        const profilePictureURL = profile.images[0]?.url; // Use optional chaining in case the images array is empty
+        const profilePictureURL = data.userProfile.images[0]?.url; // Use optional chaining in case the images array is empty
         setProfilePicture(profilePictureURL);
-      })();
-    }
-  }, [spotifyApi]);
+      });
+  }, []);
 
   const handleLogout = async () => {
     await setUserData("accessToken", "");
